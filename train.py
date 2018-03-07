@@ -7,37 +7,10 @@ from keras import backend as K
 from keras import preprocessing, layers, models, optimizers, callbacks
 from matplotlib import pyplot as plt
 from sklearn.model_selection import train_test_split
-K.set_image_dim_ordering("tf")
 
-data_dir = 'input/' if os.path.exists('input/') else '/input/'
+from . import read_data
+
 out_dir = 'output/' if os.path.exists('output/') else '/output/'
-
-
-def read_data():
-    labels = pd.read_csv(data_dir + 'labels.csv')
-
-    # only top 20 classes
-    # idx = np.zeros(labels.shape[0], np.bool)
-    # for breed in labels['breed'].value_counts()[:20].index.values:
-    #     idx = idx | (labels['breed'] == breed)
-
-    # labels = labels[idx]
-
-    n_classes = len(np.unique(labels['breed']))
-    path = data_dir + 'train/{}.jpg'
-    width = 128
-    height = 128
-
-    images = []
-    for filename, _ in labels.values:
-        image = cv2.imread(path.format(filename))
-        resized = cv2.resize(image, (width, height)) / 255
-        images.append(resized)
-
-    features = np.array(images, np.float)
-    features -= features.mean(axis=0)
-    targets = pd.get_dummies(labels['breed'], sparse=True).values
-    return features, targets, n_classes
 
 
 def get_model(input_shape, n_classes):
@@ -48,71 +21,64 @@ def get_model(input_shape, n_classes):
                             activation='relu', input_shape=input_shape,
                             kernel_initializer='glorot_normal',
                             bias_initializer='zeros'))
+    model.add(layers.Conv2D(filters=32, kernel_size=(3, 3), padding='same',
+                            activation='relu', input_shape=input_shape,
+                            kernel_initializer='glorot_normal',
+                            bias_initializer='zeros'))
     model.add(layers.BatchNormalization())
-    model.add(layers.MaxPool2D(pool_size=(2, 2), padding="same"))
+    model.add(layers.MaxPool2D(pool_size=(2, 2)))
     model.add(layers.Dropout(dropout_rate))
 
-    model.add(layers.Conv2D(filters=32, kernel_size=(3, 3), padding='same',
+    model.add(layers.Conv2D(filters=64, kernel_size=(3, 3), padding='same',
+                            activation='relu',
+                            kernel_initializer='glorot_normal',
+                            bias_initializer='zeros'))
+    model.add(layers.Conv2D(filters=64, kernel_size=(3, 3), padding='same',
                             activation='relu',
                             kernel_initializer='glorot_normal',
                             bias_initializer='zeros'))
     model.add(layers.BatchNormalization())
-    model.add(layers.MaxPool2D(pool_size=(2, 2), padding="same"))
+    model.add(layers.MaxPool2D(pool_size=(2, 2)))
     model.add(layers.Dropout(dropout_rate))
 
-    model.add(layers.Conv2D(filters=32, kernel_size=(3, 3), padding='same',
+    model.add(layers.Conv2D(filters=128, kernel_size=(3, 3), padding='same',
+                            activation='relu',
+                            kernel_initializer='glorot_normal',
+                            bias_initializer='zeros'))
+    model.add(layers.Conv2D(filters=128, kernel_size=(3, 3), padding='same',
                             activation='relu',
                             kernel_initializer='glorot_normal',
                             bias_initializer='zeros'))
     model.add(layers.BatchNormalization())
-    model.add(layers.MaxPool2D(pool_size=(2, 2), padding="same"))
+    model.add(layers.MaxPool2D(pool_size=(2, 2)))
     model.add(layers.Dropout(dropout_rate))
 
-    model.add(layers.Conv2D(filters=32, kernel_size=(3, 3), padding='same',
+    model.add(layers.Conv2D(filters=256, kernel_size=(3, 3), padding='same',
+                            activation='relu',
+                            kernel_initializer='glorot_normal',
+                            bias_initializer='zeros'))
+    model.add(layers.Conv2D(filters=256, kernel_size=(3, 3), padding='same',
                             activation='relu',
                             kernel_initializer='glorot_normal',
                             bias_initializer='zeros'))
     model.add(layers.BatchNormalization())
-    model.add(layers.MaxPool2D(pool_size=(2, 2), padding="same"))
+    model.add(layers.MaxPool2D(pool_size=(2, 2)))
     model.add(layers.Dropout(dropout_rate))
 
-    model.add(layers.Conv2D(filters=32, kernel_size=(3, 3), padding='same',
+    model.add(layers.Conv2D(filters=512, kernel_size=(3, 3), padding='same',
                             activation='relu',
                             kernel_initializer='glorot_normal',
                             bias_initializer='zeros'))
     model.add(layers.BatchNormalization())
-    model.add(layers.MaxPool2D(pool_size=(2, 2), padding="same"))
-    model.add(layers.Dropout(dropout_rate))
-
-    model.add(layers.Conv2D(filters=32, kernel_size=(3, 3), padding='same',
-                            activation='relu',
-                            kernel_initializer='glorot_normal',
-                            bias_initializer='zeros'))
-    model.add(layers.BatchNormalization())
-    model.add(layers.MaxPool2D(pool_size=(2, 2), padding="same"))
-    model.add(layers.Dropout(dropout_rate))
-
-    model.add(layers.Conv2D(filters=32, kernel_size=(3, 3), padding='same',
-                            activation='relu',
-                            kernel_initializer='glorot_normal',
-                            bias_initializer='zeros'))
-    model.add(layers.BatchNormalization())
-    model.add(layers.MaxPool2D(pool_size=(2, 2), padding="same"))
-    model.add(layers.Dropout(dropout_rate))
-
-    model.add(layers.Conv2D(filters=32, kernel_size=(3, 3), padding='same',
-                            activation='relu',
-                            kernel_initializer='glorot_normal',
-                            bias_initializer='zeros'))
-    model.add(layers.BatchNormalization())
-    model.add(layers.MaxPool2D(pool_size=(2, 2), padding="same"))
+    model.add(layers.MaxPool2D(pool_size=(2, 2)))
     model.add(layers.Dropout(dropout_rate))
 
     model.add(layers.Flatten())
 
-    model.add(layers.Dense(units=n_classes, activation='relu',
+    model.add(layers.Dense(units=512, activation='relu',
                            kernel_initializer='glorot_normal',
                            bias_initializer='zeros'))
+    model.add(layers.Dropout(0.5))
 
     model.add(layers.Dense(units=n_classes, activation='softmax',
                            kernel_initializer='glorot_normal',
@@ -126,7 +92,11 @@ def get_model(input_shape, n_classes):
 
 
 def train():
-    features, targets, n_classes = read_data()
+    features, targets, n_classes = read_data.read_data()
+
+    # preprocessing.Image.ImageDataGenerator(
+    #
+    # )
 
     print('total rows {}'.format(len(targets)))
     print('total classes {}'.format(n_classes))
@@ -141,7 +111,7 @@ def train():
     epochs = 500
 
     log_dir = out_dir
-    callback = callbacks.TensorBoard(log_dir='/output/', histogram_freq=0,
+    callback = callbacks.TensorBoard(log_dir='output/', histogram_freq=1,
                                      write_graph=True, write_grads=True,
                                      write_images=True)
 
