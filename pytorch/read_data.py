@@ -3,12 +3,15 @@ import torch
 import numpy as np
 import pandas as pd
 
-from PIL import Image
 from skimage import io
 from torch.utils import data
-from torchvision import transforms, datasets
+from torchvision import transforms
 
-data_dir = '../input/' if os.path.exists('../input/') else '/input/'
+local_input = os.path.join(os.path.abspath(
+    os.path.join(os.path.dirname(__file__), os.path.pardir)), 'input')
+data_dir = local_input if os.path.exists(local_input) else '/input/'
+
+float_dtype = torch.FloatTensor if torch.has_cudnn else torch.cuda.FloatTensor
 
 
 class DogBreedDataSet(data.Dataset):
@@ -24,25 +27,22 @@ class DogBreedDataSet(data.Dataset):
         image_path = os.path.join(self.data_dir,
                                   self.names_frame.iloc[idx, 0] + '.jpg')
         image = io.imread(image_path)
-        # image = Image.open(image_path)
 
-        # print('before transform image size = {}'.format(image.shape))
-        # print('idx =', idx)
         if self.transform:
             image = self.transform(image)
 
-            # print('after transform image size = {}'.format(image.shape))
+        label = self.names_frame.iloc[idx, 1]
 
-        breed = self.names_frame.iloc[idx, 1]
-
-        return {'image': image, 'breed': breed}
+        return image.astype(float_dtype), label
 
 
 def get_dataset():
     data_transforms = transforms.Compose([
         transforms.ToPILImage(),
         transforms.Resize((128, 128)),
-        transforms.ToTensor()])
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
 
     return DogBreedDataSet(
         os.path.join(data_dir, 'labels.csv'),
@@ -79,7 +79,13 @@ def get_train_val_loader(validation_size=0.3, shuffle=True):
                                  batch_size=4,
                                  sampler=test_sampler,
                                  num_workers=4)
-    return train_loader, val_loader
+    loaders = {'train': train_loader, 'val': val_loader}
+    sizes = {'train': len(train_idx), 'val': len(val_idx)}
+
+    train_classes = dataset.names_frame.iloc[train_idx]['breed'].unique()
+    test_classes = dataset.names_frame.iloc[val_idx]['breed'].unique()
+    classes = {'train': train_classes, 'test': test_classes}
+    return loaders, sizes, classes
 
 
 
