@@ -17,6 +17,8 @@ float_dtype = torch.FloatTensor if torch.has_cudnn else torch.cuda.FloatTensor
 class DogBreedDataSet(data.Dataset):
     def __init__(self, csv_file, root_dir, transform=None):
         self.names_frame = pd.read_csv(csv_file)
+        self.classes = self.names_frame['breed']
+        self.labels = self.classes.astype('category').cat.codes
         self.data_dir = root_dir
         self.transform = transform
 
@@ -25,21 +27,26 @@ class DogBreedDataSet(data.Dataset):
 
     def __getitem__(self, idx):
         image_path = os.path.join(self.data_dir,
-                                  self.names_frame.iloc[idx, 0] + '.jpg')
+                                  self.names_frame.iloc[idx][0] + '.jpg')
         image = io.imread(image_path)
 
         if self.transform:
             image = self.transform(image)
 
-        label = self.names_frame.iloc[idx, 1]
+        label = torch.LongTensor([self.labels.iloc[idx].tolist()])
 
-        return image.astype(float_dtype), label
+        if torch.has_cudnn:
+            image = image.cuda()
+            label = image.cuda()
+
+        return image, label
 
 
 def get_dataset():
     data_transforms = transforms.Compose([
         transforms.ToPILImage(),
-        transforms.Resize((128, 128)),
+        transforms.RandomResizedCrop(224),
+        transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
@@ -82,10 +89,7 @@ def get_train_val_loader(validation_size=0.3, shuffle=True):
     loaders = {'train': train_loader, 'val': val_loader}
     sizes = {'train': len(train_idx), 'val': len(val_idx)}
 
-    train_classes = dataset.names_frame.iloc[train_idx]['breed'].unique()
-    test_classes = dataset.names_frame.iloc[val_idx]['breed'].unique()
-    classes = {'train': train_classes, 'test': test_classes}
-    return loaders, sizes, classes
+    return loaders, sizes, len(np.unique(dataset.classes))
 
 
 

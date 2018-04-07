@@ -5,7 +5,7 @@ from torch.autograd import Variable
 from torchvision import models
 from torch import nn
 
-from . import read_data
+import read_data
 
 
 class Classifier(object):
@@ -13,26 +13,23 @@ class Classifier(object):
         loader, sizes, classes = read_data.get_train_val_loader()
         self.loader = loader
         self.sizes = sizes
-        self.classes = classes
-        self.model = self.model()
+        self.model = self.get_model(classes)
 
-    def get_model(self):
+    def get_model(self, classes):
         model_ft = models.resnet18(pretrained=True)
         feature_count = model_ft.fc.in_features
-        model_ft.fc = nn.Linear(feature_count, 2)
+        model_ft.fc = nn.Linear(feature_count, classes)
 
-        if torch.has_cudnn():
+        if torch.has_cudnn:
             model_ft.cuda()
         return model_ft
 
-    def train(self, scheduler, num_epochs=50):
+    def train(self, num_epochs=50):
         criterion = nn.CrossEntropyLoss()
-
-        class_names = self.classes['train']
 
         optimizer = optim.SGD(self.model.parameters(), lr=0.001, momentum=0.9)
 
-        exp_lr_scheduler = optim.lr_scheduler.StepLR(
+        scheduler = optim.lr_scheduler.StepLR(
             optimizer, step_size=7, gamma=0.1)
 
         best_weights = copy.deepcopy(self.model.state_dict())
@@ -53,14 +50,17 @@ class Classifier(object):
                 running_corrects = 0
 
                 for data in self.loader[phase]:
-                    inputs, labels = [Variable(x) for x in data]
+                    inputs = Variable(data[0])
+                    labels = Variable(data[1])
 
                     optimizer.zero_grad()
 
                     # forward
+                    # import ipdb; ipdb.set_trace()
                     outputs = self.model(inputs)
-                    _, pred = torch.max(outputs, labels)
-                    loss = criterion(outputs, labels)
+                    _, pred = torch.max(outputs.data, 1)
+
+                    loss = criterion(outputs, labels.view(4))
 
                     if phase == 'train':
                         loss.backward()
@@ -81,6 +81,11 @@ class Classifier(object):
 
         self.model.load_state_dict(best_weights)
         return self.model
+
+
+if __name__ == '__main__':
+    classifier = Classifier()
+    classifier.train()
 
 
 
