@@ -53,6 +53,10 @@ class Classifier(object):
                     inputs = Variable(data[0])
                     labels = Variable(data[1])
 
+                    if torch.has_cudnn:
+                        inputs = inputs.cuda()
+                        labels = labels.cuda()
+
                     optimizer.zero_grad()
 
                     # forward
@@ -60,7 +64,7 @@ class Classifier(object):
                     outputs = self.model(inputs)
                     _, pred = torch.max(outputs.data, 1)
 
-                    loss = criterion(outputs, labels.view(4))
+                    loss = criterion(outputs, labels.view(labels.shape[0]))
 
                     if phase == 'train':
                         loss.backward()
@@ -74,6 +78,9 @@ class Classifier(object):
             epoch_acc = running_corrects / self.sizes[phase]
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                 phase, epoch_loss, epoch_acc))
+
+            print('{"metric": "loss", "{}": <float>}'.format(epoch_loss))
+            print('{"metric": "acc", "{}": <float>}'.format(epoch_acc))
 
             if phase == 'val' and epoch_acc > best_accuracy:
                 best_accuracy = epoch_acc

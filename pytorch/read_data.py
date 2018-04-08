@@ -34,11 +34,6 @@ class DogBreedDataSet(data.Dataset):
             image = self.transform(image)
 
         label = torch.LongTensor([self.labels.iloc[idx].tolist()])
-
-        if torch.has_cudnn:
-            image = image.cuda()
-            label = image.cuda()
-
         return image, label
 
 
